@@ -11,8 +11,10 @@
     "lint": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
-    "db:setup": "prisma migrate dev --name init && prisma db seed"
+    "db:setup": "prisma migrate dev --name init && prisma db seed",
+    "db:backup": "tsx scripts/export-db-backup.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

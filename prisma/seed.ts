@@ -104,11 +104,13 @@ async function main() {
     update: {
       passwordHash: "admin123",
       role: UserRole.ADMIN,
+      openingBalance: 0,
     },
     create: {
       email: "admin@gereja.id",
       passwordHash: "admin123",
       role: UserRole.ADMIN,
+      openingBalance: 0,
     },
   });
 }

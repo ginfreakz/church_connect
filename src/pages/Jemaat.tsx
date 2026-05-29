@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Plus, Filter, Download, ChevronLeft, ChevronRight, MapPin, Sparkles, Users, Pencil, Trash2, X } from "lucide-react";
+import { Search, Plus, Filter, Download, ChevronLeft, ChevronRight, Users, Pencil, Trash2, X } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "@/src/lib/utils";
 
@@ -355,40 +355,6 @@ export default function Jemaat() {
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 bg-white rounded-xl border border-outline-variant/30 p-6 shadow-sm overflow-hidden flex flex-col">
-          <div className="flex justify-between items-center mb-6">
-            <h4 className="font-title-lg text-on-surface">Peta Sebaran Jemaat</h4>
-            <button className="text-primary font-label-sm hover:underline font-semibold">Lihat Detail</button>
-          </div>
-          <div className="flex-1 bg-slate-50 rounded-lg overflow-hidden relative border border-slate-100 min-h-[300px]">
-            <img
-              src="https://picsum.photos/seed/map/1200/600"
-              alt="Map"
-              className="w-full h-full object-cover opacity-60 grayscale"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="bg-white/95 backdrop-blur-sm px-6 py-2.5 rounded-full shadow-lg border border-sky-100 flex items-center gap-3">
-                <MapPin className="text-sky-600 w-5 h-5 fill-current" />
-                <span className="font-label-lg text-sky-900">12 Wilayah Pelayanan Terdeteksi</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-primary p-8 rounded-xl shadow-lg flex flex-col justify-between text-white relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
-          <div className="relative z-10">
-            <Sparkles className="w-10 h-10 mb-6 opacity-80" />
-            <h4 className="font-headline-md !text-white mb-2 leading-tight">Insight Minggu Ini</h4>
-            <p className="text-blue-100 font-body-md opacity-90 leading-relaxed">Ada 15 jemaat yang berulang tahun minggu depan. Siapkan kartu ucapan digital sekarang?</p>
-          </div>
-          <button className="w-full bg-white text-primary font-bold py-3 rounded-lg hover:shadow-xl active:scale-95 transition-all mt-8 relative z-10">
-            Buat Ucapan Otomatis
-          </button>
         </div>
       </div>
 

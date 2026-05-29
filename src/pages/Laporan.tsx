@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, FileText, TrendingUp, Landmark, HeartHandshake, EyeOff } from "lucide-react";
+import { Download, FileText, TrendingUp, Landmark } from "lucide-react";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell 
@@ -12,17 +12,36 @@ export default function Laporan() {
   const [statusData, setStatusData] = useState<Array<{ name: string; value: number; color: string }>>([]);
   const [offHistory, setOffHistory] = useState<Array<{ date: string; activity: string; attendance: string; total: string; status: string }>>([]);
   const [totalJemaat, setTotalJemaat] = useState(0);
+  const [jemaatGrowthLabel, setJemaatGrowthLabel] = useState("+0%");
+  const [currentBalance, setCurrentBalance] = useState(0);
+  const [balanceAsOf, setBalanceAsOf] = useState("-");
 
   useEffect(() => {
-    fetch("/api/reports")
+    const rawAuth = localStorage.getItem("church-connect-auth");
+    const auth = rawAuth ? JSON.parse(rawAuth) : null;
+
+    fetch("/api/reports", {
+      headers: auth?.id ? { "x-user-id": String(auth.id) } : {},
+    })
       .then((res) => res.json())
       .then((payload) => {
         setChartData(payload.chartData || []);
         setStatusData(payload.statusData || []);
         setOffHistory(payload.offHistory || []);
         setTotalJemaat(payload.totalJemaat || 0);
+        setJemaatGrowthLabel(payload.jemaatGrowthLabel || "+0%");
+        setCurrentBalance(payload.currentBalance || 0);
+        setBalanceAsOf(payload.balanceAsOf || "-");
       });
   }, []);
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0,
+    }).format(value).replace("Rp", "Rp ");
+  };
 
   const reportCsv = useMemo(() => {
     const rows = [
@@ -175,53 +194,30 @@ export default function Laporan() {
         </div>
 
         {/* Mini Stats */}
-        <div className="col-span-12 md:col-span-6 lg:col-span-3">
+        <div className="col-span-12 md:col-span-6 lg:col-span-6">
           <div className="bg-primary p-6 rounded-xl shadow-lg relative overflow-hidden group h-full">
             <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full group-hover:scale-150 transition-all duration-700"></div>
             <div className="relative z-10 flex flex-col h-full">
               <TrendingUp className="text-white/80 w-6 h-6 mb-4" />
               <h4 className="text-white/70 text-[10px] font-black uppercase tracking-[0.2em]">Kenaikan Jemaat</h4>
-              <div className="text-3xl font-black text-white mt-1">+12.5%</div>
-              <p className="text-white/60 text-[11px] mt-auto pt-4">Dibandingkan bulan lalu</p>
+              <div className="text-3xl font-black text-white mt-1">{jemaatGrowthLabel}</div>
+              <p className="text-white/60 text-[11px] mt-auto pt-4">Pertumbuhan dibanding bulan lalu</p>
             </div>
           </div>
         </div>
 
-        <div className="col-span-12 md:col-span-6 lg:col-span-3">
+        <div className="col-span-12 md:col-span-6 lg:col-span-6">
           <div className="bg-secondary p-6 rounded-xl shadow-lg relative overflow-hidden group h-full">
             <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full group-hover:scale-150 transition-all duration-700"></div>
             <div className="relative z-10 flex flex-col h-full">
               <Landmark className="text-white/80 w-6 h-6 mb-4" />
               <h4 className="text-white/70 text-[10px] font-black uppercase tracking-[0.2em]">Dana Tersedia</h4>
-              <div className="text-3xl font-black text-white mt-1">Rp 142.5M</div>
-              <p className="text-white/60 text-[11px] mt-auto pt-4">Saldo per 15 Juni</p>
+              <div className="text-3xl font-black text-white mt-1">{formatCurrency(currentBalance)}</div>
+              <p className="text-white/60 text-[11px] mt-auto pt-4">Saldo per {balanceAsOf}</p>
             </div>
           </div>
         </div>
 
-        <div className="col-span-12 md:col-span-6 lg:col-span-3">
-          <div className="bg-white border border-outline-variant/30 p-6 rounded-xl shadow-sm relative overflow-hidden group h-full hover:border-primary/40 transition-colors">
-            <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full group-hover:scale-150 transition-all duration-700"></div>
-            <div className="relative z-10 flex flex-col h-full">
-              <HeartHandshake className="text-primary w-6 h-6 mb-4" />
-              <h4 className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.2em]">Relawan Baru</h4>
-              <div className="text-3xl font-black text-on-surface mt-1">24 <span className="text-sm font-normal text-on-surface-variant">Orang</span></div>
-              <p className="text-on-surface-variant text-[11px] mt-auto pt-4">Mendaftar bulan ini</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-span-12 md:col-span-6 lg:col-span-3">
-          <div className="bg-white border border-outline-variant/30 p-6 rounded-xl shadow-sm relative overflow-hidden group h-full hover:border-error/40 transition-colors">
-            <div className="absolute -right-4 -top-4 w-24 h-24 bg-error/5 rounded-full group-hover:scale-150 transition-all duration-700"></div>
-            <div className="relative z-10 flex flex-col h-full">
-              <EyeOff className="text-error w-6 h-6 mb-4" />
-              <h4 className="text-on-surface-variant text-[10px] font-black uppercase tracking-[0.2em]">Absensi Ibadah</h4>
-              <div className="text-3xl font-black text-on-surface mt-1">-3.2%</div>
-              <p className="text-on-surface-variant text-[11px] mt-auto pt-4">Penurunan dari rata-rata</p>
-            </div>
-          </div>
-        </div>
       </div>
     </motion.div>
   );

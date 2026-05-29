@@ -86,6 +86,14 @@ async function startServer() {
     return `${prefix}${String(nextNumber).padStart(3, "0")}`;
   };
 
+  const getUserIdFromHeader = (req: express.Request) => {
+    const rawValue = req.header("x-user-id");
+    if (!rawValue) return null;
+    const parsed = Number.parseInt(rawValue, 10);
+    if (!Number.isFinite(parsed)) return null;
+    return parsed;
+  };
+
   app.post("/api/login", async (req, res) => {
     try {
       const { email, password, role } = req.body as {
@@ -117,6 +125,7 @@ async function startServer() {
           email: user.email,
           role: mapRoleLabel(user.role),
           name: "Admin Pusat",
+          openingBalance: user.openingBalance,
         },
       });
     } catch (error) {
@@ -329,12 +338,74 @@ async function startServer() {
     }
   });
 
+  app.get("/api/users/opening-balance", async (req, res) => {
+    try {
+      const userId = getUserIdFromHeader(req);
+      if (!userId) {
+        res.status(400).json({ message: "User ID tidak ditemukan" });
+        return;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { openingBalance: true },
+      });
+
+      if (!user) {
+        res.status(404).json({ message: "User tidak ditemukan" });
+        return;
+      }
+
+      res.json({ openingBalance: user.openingBalance });
+    } catch (error) {
+      console.error("Failed to load opening balance", error);
+      res.status(500).json({ message: "Gagal mengambil saldo awal" });
+    }
+  });
+
+  app.put("/api/users/opening-balance", async (req, res) => {
+    try {
+      const userId = getUserIdFromHeader(req);
+      if (!userId) {
+        res.status(400).json({ message: "User ID tidak ditemukan" });
+        return;
+      }
+
+      const { openingBalance } = req.body as { openingBalance?: number };
+      if (typeof openingBalance !== "number" || !Number.isFinite(openingBalance)) {
+        res.status(400).json({ message: "Nilai saldo awal tidak valid" });
+        return;
+      }
+
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: { openingBalance: Math.round(openingBalance) },
+        select: { openingBalance: true },
+      });
+
+      res.json({ openingBalance: updated.openingBalance });
+    } catch (error) {
+      console.error("Failed to save opening balance", error);
+      res.status(500).json({ message: "Gagal menyimpan saldo awal" });
+    }
+  });
+
   app.get("/api/reports", async (req, res) => {
     try {
+      const userId = getUserIdFromHeader(req);
       const [jemaat, transactions] = await Promise.all([
         prisma.jemaat.findMany(),
         prisma.transaction.findMany({ orderBy: { transactionDate: "asc" } }),
       ]);
+
+      const user = userId
+        ? await prisma.user.findUnique({
+          where: { id: userId },
+          select: { openingBalance: true },
+        })
+        : null;
+
+      const openingBalance = user?.openingBalance ?? 0;
 
       const monthMap = new Map<string, { name: string; income: number; expense: number }>();
       for (const tx of transactions) {
@@ -366,6 +437,19 @@ async function startServer() {
       const aktif = jemaat.filter((item) => item.status === JemaatStatus.AKTIF).length;
       const tidakAktif = totalJemaat - aktif;
 
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+      const currentMonthNew = jemaat.filter((item) => item.createdAt >= currentMonthStart).length;
+      const previousMonthNew = jemaat.filter((item) => item.createdAt >= previousMonthStart && item.createdAt < currentMonthStart).length;
+
+      const growthValue = previousMonthNew === 0
+        ? (currentMonthNew > 0 ? 100 : 0)
+        : ((currentMonthNew - previousMonthNew) / previousMonthNew) * 100;
+
+      const growthRounded = Number(growthValue.toFixed(1));
+
       const statusData = [
         {
           name: "Anggota Aktif",
@@ -396,11 +480,25 @@ async function startServer() {
           status: tx.amount > 0 ? "Verifikasi" : "Audit Selesai",
         }));
 
+      const totalIncome = transactions.filter((tx) => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0);
+      const totalExpense = transactions.filter((tx) => tx.amount < 0).reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+      const currentBalance = openingBalance + totalIncome - totalExpense;
+
+      const asOfDate = new Intl.DateTimeFormat("id-ID", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      }).format(now);
+
       res.json({
         chartData,
         statusData,
         totalJemaat,
         offHistory: recentTransactions,
+        jemaatGrowthPercentage: growthRounded,
+        jemaatGrowthLabel: `${growthRounded >= 0 ? "+" : ""}${growthRounded}%`,
+        currentBalance,
+        balanceAsOf: asOfDate,
       });
     } catch (error) {
       console.error("Failed to load reports", error);

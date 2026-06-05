@@ -14,22 +14,6 @@ if errorlevel 1 (
   exit /b 1
 )
 
-where docker >nul 2>nul
-if errorlevel 1 (
-  echo [ERROR] Docker Desktop is not installed.
-  echo Please install Docker Desktop first, then run this file again.
-  pause
-  exit /b 1
-)
-
-docker info >nul 2>nul
-if errorlevel 1 (
-  echo [ERROR] Docker Desktop is not running.
-  echo Please open Docker Desktop and wait until it is fully started.
-  pause
-  exit /b 1
-)
-
 if not exist node_modules (
   echo Installing dependencies...
   call npm install
@@ -40,10 +24,10 @@ if not exist node_modules (
   )
 )
 
-echo Starting PostgreSQL container...
-call docker compose up -d
+echo Generating Prisma client...
+call npm run prisma:generate
 if errorlevel 1 (
-  echo [ERROR] Failed to start docker compose.
+  echo [ERROR] Failed to generate Prisma client.
   pause
   exit /b 1
 )
@@ -56,14 +40,10 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if exist database-backup\church_connect_latest.sql (
-  echo Restoring database backup snapshot...
-  type database-backup\church_connect_latest.sql | docker exec -i church-connect-postgres psql -U postgres -d church_connect
-  if errorlevel 1 (
-    echo [WARNING] Backup restore failed. You can still run the app and seed manually.
-  )
-) else (
-  echo [WARNING] Backup file not found: database-backup\church_connect_latest.sql
+echo Seeding database...
+call npm run prisma:seed
+if errorlevel 1 (
+  echo [WARNING] Database seed failed. You can still run the app.
 )
 
 echo Setup completed.

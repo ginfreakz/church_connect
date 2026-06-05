@@ -4,7 +4,6 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { prisma } from "./src/lib/prisma";
-import { JemaatStatus, TransactionType, UserRole } from "./src/generated/prisma/client";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,15 +14,15 @@ async function startServer() {
 
   app.use(express.json());
 
-  const statusLabel = {
+  const statusLabel: Record<string, string> = {
     AKTIF: "Aktif",
     TIDAK_AKTIF: "Tidak Aktif",
-  } as const;
+  };
 
-  const typeLabel = {
+  const typeLabel: Record<string, string> = {
     PEMASUKAN: "Pemasukan",
     PENGELUARAN: "Pengeluaran",
-  } as const;
+  };
 
   const formatDate = (value: Date) => {
     return new Intl.DateTimeFormat("id-ID", {
@@ -33,34 +32,34 @@ async function startServer() {
     }).format(value);
   };
 
-  const toJemaatStatus = (value: string | undefined): JemaatStatus => {
+  const toJemaatStatus = (value: string | undefined): string => {
     if (value?.toLowerCase() === "tidak aktif") {
-      return JemaatStatus.TIDAK_AKTIF;
+      return "TIDAK_AKTIF";
     }
-    return JemaatStatus.AKTIF;
+    return "AKTIF";
   };
 
-  const toTransactionType = (value: string | undefined): TransactionType => {
+  const toTransactionType = (value: string | undefined): string => {
     if (value?.toLowerCase() === "pengeluaran") {
-      return TransactionType.PENGELUARAN;
+      return "PENGELUARAN";
     }
-    return TransactionType.PEMASUKAN;
+    return "PEMASUKAN";
   };
 
-  const toRole = (value: string | undefined): UserRole => {
+  const toRole = (value: string | undefined): string => {
     switch ((value || "").toLowerCase()) {
       case "keuangan":
-        return UserRole.KEUANGAN;
+        return "KEUANGAN";
       case "jemaat":
-        return UserRole.JEMAAT;
+        return "JEMAAT";
       default:
-        return UserRole.ADMIN;
+        return "ADMIN";
     }
   };
 
-  const mapRoleLabel = (value: UserRole) => {
-    if (value === UserRole.KEUANGAN) return "keuangan";
-    if (value === UserRole.JEMAAT) return "jemaat";
+  const mapRoleLabel = (value: string) => {
+    if (value === "KEUANGAN") return "keuangan";
+    if (value === "JEMAAT") return "jemaat";
     return "admin";
   };
 
@@ -320,7 +319,7 @@ async function startServer() {
           transactionDate: new Date(date),
           type: txType,
           category,
-          amount: txType === TransactionType.PEMASUKAN ? parsedAmount : -parsedAmount,
+          amount: txType === "PEMASUKAN" ? parsedAmount : -parsedAmount,
           note,
         },
       });
@@ -434,7 +433,7 @@ async function startServer() {
       }));
 
       const totalJemaat = jemaat.length;
-      const aktif = jemaat.filter((item) => item.status === JemaatStatus.AKTIF).length;
+      const aktif = jemaat.filter((item) => item.status === "AKTIF").length;
       const tidakAktif = totalJemaat - aktif;
 
       const now = new Date();
@@ -518,8 +517,8 @@ async function startServer() {
         prisma.jemaat.findMany({
           where: {
             OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { address: { contains: q, mode: "insensitive" } },
+              { name: { contains: q } },
+              { address: { contains: q } },
             ],
           },
           take: 5,
@@ -527,8 +526,8 @@ async function startServer() {
         prisma.transaction.findMany({
           where: {
             OR: [
-              { category: { contains: q, mode: "insensitive" } },
-              { note: { contains: q, mode: "insensitive" } },
+              { category: { contains: q } },
+              { note: { contains: q } },
             ],
           },
           orderBy: { transactionDate: "desc" },

@@ -4,7 +4,7 @@
 
 # Church Connect Local Setup
 
-This project now uses local PostgreSQL + Prisma for data in:
+This project uses SQLite + Prisma for data in:
 
 - `/api/stats`
 - `/api/jemaat`
@@ -12,8 +12,7 @@ This project now uses local PostgreSQL + Prisma for data in:
 
 ## Prerequisites
 
-- Node.js
-- Docker Desktop (recommended for local PostgreSQL)
+- Node.js LTS
 
 ## 1. Install dependencies
 
@@ -26,24 +25,18 @@ npm install
 Create `.env` from `.env.example` if needed, then ensure this exists:
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/church_connect?schema=public"
+DATABASE_URL="file:./church-connect.db"
 ```
 
 If you still use Gemini features, also set `GEMINI_API_KEY` in `.env.local`.
 
-## 3. Start local PostgreSQL
-
-```bash
-docker compose up -d
-```
-
-## 4. Run migrations + seed
+## 3. Run migrations + seed
 
 ```bash
 npm run db:setup
 ```
 
-## 5. Start app
+## 4. Start app
 
 ```bash
 npm run dev
@@ -60,29 +53,16 @@ npm run prisma:seed
 npm run db:backup
 ```
 
-## Database Backup For Deployment
+## Database Backup
 
-This repository includes a SQL backup snapshot at:
+This project uses SQLite. The database is a single file at:
 
-- `database-backup/church_connect_latest.sql`
+- `church-connect.db`
 
-To regenerate backup from your current local database:
+To backup, simply copy this file. To regenerate SQL backup:
 
 ```bash
 npm run db:backup
-```
-
-To restore backup on a new laptop (PostgreSQL installed):
-
-```bash
-psql -h localhost -p 5432 -U postgres -d church_connect -f database-backup/church_connect_latest.sql
-```
-
-Then run app normally:
-
-```bash
-npm install
-npm run dev
 ```
 
 ## One-Click Run For Non-Technical Users (Windows)
@@ -91,18 +71,23 @@ This repo includes ready-to-use batch launchers:
 
 - `1-SETUP-FIRST-TIME.bat`: Run once after cloning/downloading project.
 - `2-RUN-JKI.bat`: Daily launcher (double-click to run app).
-- `3-STOP-JKI.bat`: Stop app and database container.
+- `3-STOP-JKI.bat`: Stop app.
 
 Recommended flow on user laptop:
 
 1. Install Node.js LTS.
-2. Install Docker Desktop and open it.
-3. Double-click `1-SETUP-FIRST-TIME.bat` (first time only).
-4. For daily use, double-click `2-RUN-JKI.bat`.
+2. Double-click `1-SETUP-FIRST-TIME.bat` (first time only).
+3. For daily use, double-click `2-RUN-JKI.bat`.
 
 The launcher will:
 
-- start PostgreSQL container,
 - apply migrations,
 - start app server,
 - open browser automatically to `http://localhost:3000`.
+
+## Advantages Over PostgreSQL
+
+- **No Docker required** - database is just a file
+- **Lightweight** - no separate database service
+- **Easy backup** - copy the `.db` file
+- **Portable** - runs anywhere with Node.js

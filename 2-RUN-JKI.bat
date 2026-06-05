@@ -13,20 +13,6 @@ if errorlevel 1 (
   exit /b 1
 )
 
-where docker >nul 2>nul
-if errorlevel 1 (
-  echo [ERROR] Docker Desktop is not installed.
-  pause
-  exit /b 1
-)
-
-docker info >nul 2>nul
-if errorlevel 1 (
-  echo [ERROR] Docker Desktop is not running.
-  pause
-  exit /b 1
-)
-
 if not exist node_modules (
   echo Installing dependencies...
   call npm install
@@ -35,14 +21,6 @@ if not exist node_modules (
     pause
     exit /b 1
   )
-)
-
-echo Starting PostgreSQL container...
-call docker compose up -d
-if errorlevel 1 (
-  echo [ERROR] Failed to start docker compose.
-  pause
-  exit /b 1
 )
 
 echo Ensuring database migration state...

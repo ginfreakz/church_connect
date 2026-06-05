@@ -1,60 +1,42 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
-}
-
-enum JemaatStatus {
-  AKTIF
-  TIDAK_AKTIF
-}
-
-enum TransactionType {
-  PEMASUKAN
-  PENGELUARAN
-}
-
-enum UserRole {
-  ADMIN
-  KEUANGAN
-  JEMAAT
+  provider = "sqlite"
 }
 
 model Jemaat {
-  id        String       @id @db.VarChar(24)
+  id        String   @id
   name      String
   address   String
-  phone     String       @db.VarChar(32)
-  status    JemaatStatus @default(AKTIF)
-  initials  String       @db.VarChar(8)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  phone     String
+  status    String   @default("AKTIF")
+  initials  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Transaction {
-  id              Int             @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   transactionDate DateTime
-  type            TransactionType
+  type            String
   category        String
   amount          Int
   note            String
-  createdAt       DateTime        @default(now())
+  createdAt       DateTime @default(now())
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique
-  passwordHash String
-  role         UserRole @default(ADMIN)
-  openingBalance Int    @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             Int      @id @default(autoincrement())
+  email          String   @unique
+  passwordHash   String
+  role           String   @default("ADMIN")
+  openingBalance Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

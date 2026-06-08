@@ -11,14 +11,15 @@ datasource db {
 }
 
 model Jemaat {
-  id        String   @id
-  name      String
-  address   String
-  phone     String
-  status    String   @default("AKTIF")
-  initials  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id
+  name       String
+  address    String
+  phone      String
+  status     String    @default("AKTIF")
+  initials   String
+  birthDate  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model Transaction {
@@ -39,4 +40,31 @@ model User {
   openingBalance Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model Ministry {
+  id          String   @id
+  name        String
+  description String
+  leader      String
+  status      String   @default("AKTIF")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model MinistryMember {
+  id         String   @id
+  ministryId String
+  jemaatId   String
+  role       String
+  joinedAt   DateTime @default(now())
+}
+
+model Event {
+  id          String   @id
+  title       String
+  eventDate   DateTime
+  description String
+  type        String
+  createdAt   DateTime @default(now())
 }

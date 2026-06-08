@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, Plus, Calendar, ChevronDown, TrendingUp, TrendingDown, Landmark, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Download, Plus, Calendar, ChevronDown, TrendingUp, TrendingDown, Landmark, ChevronLeft, ChevronRight, X, Pencil, Trash2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { motion } from "motion/react";
 import { cn } from "@/src/lib/utils";
 
 interface Transaction {
+  id: number;
   date: string;
+  rawDate: string;
   type: string;
+  rawType: string;
   category: string;
   amount: number;
   note: string;
@@ -33,6 +36,11 @@ export default function Keuangan() {
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [isSubmittingTx, setIsSubmittingTx] = useState(false);
   const [openingBalanceInput, setOpeningBalanceInput] = useState("");
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [confirmState, setConfirmState] = useState<{
+    mode: "delete";
+    target: Transaction;
+  } | null>(null);
   const [txForm, setTxForm] = useState<TransactionForm>({
     date: new Date().toISOString().slice(0, 10),
     type: "Pemasukan",
@@ -191,6 +199,90 @@ export default function Keuangan() {
     }
   };
 
+  const handleEditTransaction = async () => {
+    if (!editingTx) return;
+    if (!txForm.date || !txForm.type || !txForm.category || !txForm.amount || !txForm.note) {
+      window.alert("Semua field transaksi wajib diisi.");
+      return;
+    }
+
+    setIsSubmittingTx(true);
+    try {
+      const response = await fetch(`/api/transactions/${editingTx.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: txForm.date,
+          type: txForm.type,
+          category: txForm.category,
+          amount: Number(txForm.amount),
+          note: txForm.note,
+        }),
+      });
+
+      if (!response.ok) {
+        window.alert("Gagal memperbarui transaksi");
+        return;
+      }
+
+      setEditingTx(null);
+      setShowTxModal(false);
+      setTxForm({
+        date: new Date().toISOString().slice(0, 10),
+        type: "Pemasukan",
+        category: "",
+        amount: "",
+        note: "",
+      });
+      await loadTransactions();
+    } finally {
+      setIsSubmittingTx(false);
+    }
+  };
+
+  const handleDeleteTransaction = async (id: number) => {
+    setIsSubmittingTx(true);
+    try {
+      const response = await fetch(`/api/transactions/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        window.alert("Gagal menghapus transaksi");
+        return;
+      }
+
+      setConfirmState(null);
+      await loadTransactions();
+    } finally {
+      setIsSubmittingTx(false);
+    }
+  };
+
+  const openEditModal = (tx: Transaction) => {
+    setEditingTx(tx);
+    setTxForm({
+      date: tx.rawDate,
+      type: tx.type,
+      category: tx.category,
+      amount: String(Math.abs(tx.amount)),
+      note: tx.note,
+    });
+    setShowTxModal(true);
+  };
+
+  const closeModal = () => {
+    setShowTxModal(false);
+    setEditingTx(null);
+    setTxForm({
+      date: new Date().toISOString().slice(0, 10),
+      type: "Pemasukan",
+      category: "",
+      amount: "",
+      note: "",
+    });
+  };
+
   const handleSaveOpeningBalance = async () => {
     const parsed = Number(openingBalanceInput);
     if (!Number.isFinite(parsed)) {
@@ -237,7 +329,17 @@ export default function Keuangan() {
             Ekspor Transaksi CSV
           </button>
           <button
-            onClick={() => setShowTxModal(true)}
+            onClick={() => {
+              setEditingTx(null);
+              setTxForm({
+                date: new Date().toISOString().slice(0, 10),
+                type: "Pemasukan",
+                category: "",
+                amount: "",
+                note: "",
+              });
+              setShowTxModal(true);
+            }}
             className="flex items-center gap-2 px-6 py-2 bg-primary text-on-primary font-label-lg rounded-lg shadow-sm hover:shadow-lg hover:brightness-110 active:scale-95 transition-all"
           >
             <Plus className="w-5 h-5" />
@@ -329,11 +431,12 @@ export default function Keuangan() {
                 <th className="px-6 py-4 font-label-lg text-slate-500 uppercase tracking-widest">Kategori</th>
                 <th className="px-6 py-4 font-label-lg text-slate-500 uppercase tracking-widest">Nominal</th>
                 <th className="px-6 py-4 font-label-lg text-slate-500 uppercase tracking-widest">Keterangan</th>
+                <th className="px-6 py-4 font-label-lg text-slate-500 uppercase tracking-widest text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {paginatedTransactions.map((tx, i) => (
-                <tr key={`${tx.date}-${tx.category}-${i}`} className="hover:bg-primary/5 transition-all group">
+                <tr key={`${tx.id}-${i}`} className="hover:bg-primary/5 transition-all group">
                   <td className="px-6 py-5 text-sm font-medium text-slate-700">{tx.date}</td>
                   <td className="px-6 py-5">
                     <span
@@ -348,6 +451,24 @@ export default function Keuangan() {
                   <td className="px-6 py-5 text-sm text-slate-700">{tx.category}</td>
                   <td className={cn("px-6 py-5 font-bold text-sm", tx.amount > 0 ? "text-emerald-600" : "text-rose-600")}>{formatCurrency(tx.amount)}</td>
                   <td className="px-6 py-5 text-sm text-slate-500 max-w-xs truncate">{tx.note}</td>
+                  <td className="px-6 py-5 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => openEditModal(tx)}
+                        className="p-2 text-slate-400 hover:text-primary transition-colors rounded-lg hover:bg-primary/5"
+                        title="Edit transaksi"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setConfirmState({ mode: "delete", target: tx })}
+                        className="p-2 text-slate-400 hover:text-rose-600 transition-colors rounded-lg hover:bg-rose-50"
+                        title="Hapus transaksi"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -409,8 +530,8 @@ export default function Keuangan() {
         <div className="fixed inset-0 bg-black/40 z-[80] flex items-center justify-center p-4">
           <div className="w-full max-w-xl bg-white rounded-xl border border-outline-variant/30 shadow-xl p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-title-lg text-on-surface">Transaksi Baru</h3>
-              <button onClick={() => setShowTxModal(false)} className="p-1 rounded hover:bg-slate-100">
+              <h3 className="font-title-lg text-on-surface">{editingTx ? "Edit Transaksi" : "Transaksi Baru"}</h3>
+              <button onClick={closeModal} className="p-1 rounded hover:bg-slate-100">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -467,9 +588,13 @@ export default function Keuangan() {
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
-              <button onClick={() => setShowTxModal(false)} className="px-4 py-2 rounded-lg border border-outline-variant hover:bg-slate-50" disabled={isSubmittingTx}>Batal</button>
-              <button onClick={handleCreateTransaction} className="px-4 py-2 rounded-lg bg-primary text-on-primary hover:brightness-110" disabled={isSubmittingTx}>
-                {isSubmittingTx ? "Menyimpan..." : "Simpan Transaksi"}
+              <button onClick={closeModal} className="px-4 py-2 rounded-lg border border-outline-variant hover:bg-slate-50" disabled={isSubmittingTx}>Batal</button>
+              <button
+                onClick={editingTx ? handleEditTransaction : handleCreateTransaction}
+                className="px-4 py-2 rounded-lg bg-primary text-on-primary hover:brightness-110"
+                disabled={isSubmittingTx}
+              >
+                {isSubmittingTx ? "Menyimpan..." : editingTx ? "Simpan Perubahan" : "Simpan Transaksi"}
               </button>
             </div>
           </div>
@@ -498,6 +623,27 @@ export default function Keuangan() {
             <div className="mt-6 flex justify-end gap-2">
               <button onClick={() => setShowBalanceModal(false)} className="px-4 py-2 rounded-lg border border-outline-variant hover:bg-slate-50">Batal</button>
               <button onClick={handleSaveOpeningBalance} className="px-4 py-2 rounded-lg bg-primary text-on-primary hover:brightness-110">Simpan</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmState && (
+        <div className="fixed inset-0 bg-black/40 z-[90] flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-xl border border-outline-variant/30 shadow-xl p-6">
+            <h3 className="font-title-lg text-on-surface mb-2">Konfirmasi Hapus</h3>
+            <p className="text-sm text-slate-500 mb-6">
+              Hapus transaksi "{confirmState.target.category}" sebesar {formatCurrency(confirmState.target.amount)}? Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmState(null)} className="px-4 py-2 rounded-lg border border-outline-variant hover:bg-slate-50" disabled={isSubmittingTx}>Batal</button>
+              <button
+                onClick={() => handleDeleteTransaction(confirmState.target.id)}
+                className="px-4 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700"
+                disabled={isSubmittingTx}
+              >
+                {isSubmittingTx ? "Menghapus..." : "Ya, Hapus"}
+              </button>
             </div>
           </div>
         </div>

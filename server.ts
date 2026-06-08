@@ -85,6 +85,59 @@ async function startServer() {
     return `${prefix}${String(nextNumber).padStart(3, "0")}`;
   };
 
+  const createMinistryId = async () => {
+    const prefix = "MN-";
+    const latest = await prisma.ministry.findFirst({
+      where: { id: { startsWith: prefix } },
+      orderBy: { id: "desc" },
+      select: { id: true },
+    });
+    const nextNumber = latest ? Number.parseInt(latest.id.slice(3), 10) + 1 : 1;
+    return `${prefix}${String(nextNumber).padStart(3, "0")}`;
+  };
+
+  const createMinistryMemberId = async () => {
+    const prefix = "MM-";
+    const latest = await prisma.ministryMember.findFirst({
+      where: { id: { startsWith: prefix } },
+      orderBy: { id: "desc" },
+      select: { id: true },
+    });
+    const nextNumber = latest ? Number.parseInt(latest.id.slice(3), 10) + 1 : 1;
+    return `${prefix}${String(nextNumber).padStart(3, "0")}`;
+  };
+
+  const createEventId = async () => {
+    const prefix = "EV-";
+    const latest = await prisma.event.findFirst({
+      where: { id: { startsWith: prefix } },
+      orderBy: { id: "desc" },
+      select: { id: true },
+    });
+    const nextNumber = latest ? Number.parseInt(latest.id.slice(3), 10) + 1 : 1;
+    return `${prefix}${String(nextNumber).padStart(3, "0")}`;
+  };
+
+  const eventTypeLabel: Record<string, string> = {
+    UMUM: "Umum",
+    IBADAH: "Ibadah",
+    RAPAT: "Rapat",
+    ULANG_TAHUN: "Ulang Tahun",
+  };
+
+  const toEventType = (value: string | undefined): string => {
+    switch ((value || "").toLowerCase()) {
+      case "ibadah":
+        return "IBADAH";
+      case "rapat":
+        return "RAPAT";
+      case "ulang tahun":
+        return "ULANG_TAHUN";
+      default:
+        return "UMUM";
+    }
+  };
+
   const getUserIdFromHeader = (req: express.Request) => {
     const rawValue = req.header("x-user-id");
     if (!rawValue) return null;
@@ -174,6 +227,7 @@ async function startServer() {
           phone: item.phone,
           status: statusLabel[item.status],
           initials: item.initials,
+          birthDate: item.birthDate ? item.birthDate.toISOString().split("T")[0] : null,
         })),
       );
     } catch (error) {
@@ -184,11 +238,12 @@ async function startServer() {
 
   app.post("/api/jemaat", async (req, res) => {
     try {
-      const { name, address, phone, status } = req.body as {
+      const { name, address, phone, status, birthDate } = req.body as {
         name?: string;
         address?: string;
         phone?: string;
         status?: string;
+        birthDate?: string;
       };
 
       if (!name || !address || !phone) {
@@ -205,6 +260,7 @@ async function startServer() {
           phone,
           status: toJemaatStatus(status),
           initials: buildInitials(name),
+          birthDate: birthDate ? new Date(birthDate) : null,
         },
       });
 
@@ -215,6 +271,7 @@ async function startServer() {
         phone: created.phone,
         status: statusLabel[created.status],
         initials: created.initials,
+        birthDate: created.birthDate ? created.birthDate.toISOString().split("T")[0] : null,
       });
     } catch (error) {
       console.error("Failed to create jemaat", error);
@@ -225,11 +282,12 @@ async function startServer() {
   app.patch("/api/jemaat/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, status, address, phone } = req.body as {
+      const { name, status, address, phone, birthDate } = req.body as {
         name?: string;
         status?: string;
         address?: string;
         phone?: string;
+        birthDate?: string | null;
       };
 
       const updated = await prisma.jemaat.update({
@@ -240,6 +298,7 @@ async function startServer() {
           address,
           phone,
           initials: name ? buildInitials(name) : undefined,
+          birthDate: birthDate !== undefined ? (birthDate ? new Date(birthDate) : null) : undefined,
         },
       });
 
@@ -250,6 +309,7 @@ async function startServer() {
         phone: updated.phone,
         status: statusLabel[updated.status],
         initials: updated.initials,
+        birthDate: updated.birthDate ? updated.birthDate.toISOString().split("T")[0] : null,
       });
     } catch (error) {
       console.error("Failed to update jemaat", error);
@@ -283,8 +343,11 @@ async function startServer() {
 
       res.json(
         transactions.map((item) => ({
+          id: item.id,
           date: formatDate(item.transactionDate),
+          rawDate: item.transactionDate.toISOString().split("T")[0],
           type: typeLabel[item.type],
+          rawType: item.type,
           category: item.category,
           amount: item.amount,
           note: item.note,
@@ -325,8 +388,11 @@ async function startServer() {
       });
 
       res.status(201).json({
+        id: created.id,
         date: formatDate(created.transactionDate),
+        rawDate: created.transactionDate.toISOString().split("T")[0],
         type: typeLabel[created.type],
+        rawType: created.type,
         category: created.category,
         amount: created.amount,
         note: created.note,
@@ -334,6 +400,58 @@ async function startServer() {
     } catch (error) {
       console.error("Failed to create transaction", error);
       res.status(500).json({ message: "Gagal menambah transaksi" });
+    }
+  });
+
+  app.patch("/api/transactions/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { date, type, category, amount, note } = req.body as {
+        date?: string;
+        type?: string;
+        category?: string;
+        amount?: number;
+        note?: string;
+      };
+
+      const parsedAmount = amount !== undefined ? Math.abs(Number(amount)) : undefined;
+      const txType = type ? toTransactionType(type) : undefined;
+
+      const updated = await prisma.transaction.update({
+        where: { id: Number(id) },
+        data: {
+          transactionDate: date ? new Date(date) : undefined,
+          type: txType,
+          category,
+          amount: parsedAmount !== undefined ? (txType === "PEMASUKAN" || (txType === undefined && parsedAmount > 0) ? parsedAmount : -parsedAmount) : undefined,
+          note,
+        },
+      });
+
+      res.json({
+        id: updated.id,
+        date: formatDate(updated.transactionDate),
+        rawDate: updated.transactionDate.toISOString().split("T")[0],
+        type: typeLabel[updated.type],
+        rawType: updated.type,
+        category: updated.category,
+        amount: updated.amount,
+        note: updated.note,
+      });
+    } catch (error) {
+      console.error("Failed to update transaction", error);
+      res.status(500).json({ message: "Gagal memperbarui transaksi" });
+    }
+  });
+
+  app.delete("/api/transactions/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await prisma.transaction.delete({ where: { id: Number(id) } });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete transaction", error);
+      res.status(500).json({ message: "Gagal menghapus transaksi" });
     }
   });
 
@@ -556,6 +674,386 @@ async function startServer() {
     } catch (error) {
       console.error("Failed to search", error);
       res.status(500).json({ message: "Gagal melakukan pencarian" });
+    }
+  });
+
+  // ==================== MINISTRY ENDPOINTS ====================
+
+  app.get("/api/ministries", async (req, res) => {
+    try {
+      const ministries = await prisma.ministry.findMany({
+        orderBy: { createdAt: "desc" },
+      });
+
+      const memberCounts = await prisma.ministryMember.groupBy({
+        by: ["ministryId"],
+        _count: { id: true },
+      });
+
+      const countMap = new Map(memberCounts.map((m) => [m.ministryId, m._count.id]));
+
+      res.json(
+        ministries.map((item) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          leader: item.leader,
+          status: statusLabel[item.status],
+          memberCount: countMap.get(item.id) || 0,
+          createdAt: formatDate(item.createdAt),
+        })),
+      );
+    } catch (error) {
+      console.error("Failed to load ministries", error);
+      res.status(500).json({ message: "Gagal mengambil data pelayanan" });
+    }
+  });
+
+  app.post("/api/ministries", async (req, res) => {
+    try {
+      const { name, description, leader, status } = req.body as {
+        name?: string;
+        description?: string;
+        leader?: string;
+        status?: string;
+      };
+
+      if (!name || !description || !leader) {
+        res.status(400).json({ message: "Nama, deskripsi, dan penanggung jawab wajib diisi" });
+        return;
+      }
+
+      const id = await createMinistryId();
+      const created = await prisma.ministry.create({
+        data: { id, name, description, leader, status: toJemaatStatus(status) },
+      });
+
+      res.status(201).json({
+        id: created.id,
+        name: created.name,
+        description: created.description,
+        leader: created.leader,
+        status: statusLabel[created.status],
+        memberCount: 0,
+      });
+    } catch (error) {
+      console.error("Failed to create ministry", error);
+      res.status(500).json({ message: "Gagal menambah pelayanan" });
+    }
+  });
+
+  app.patch("/api/ministries/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, description, leader, status } = req.body as {
+        name?: string;
+        description?: string;
+        leader?: string;
+        status?: string;
+      };
+
+      const updated = await prisma.ministry.update({
+        where: { id },
+        data: {
+          name,
+          description,
+          leader,
+          status: status ? toJemaatStatus(status) : undefined,
+        },
+      });
+
+      const memberCount = await prisma.ministryMember.count({ where: { ministryId: id } });
+
+      res.json({
+        id: updated.id,
+        name: updated.name,
+        description: updated.description,
+        leader: updated.leader,
+        status: statusLabel[updated.status],
+        memberCount,
+      });
+    } catch (error) {
+      console.error("Failed to update ministry", error);
+      res.status(500).json({ message: "Gagal memperbarui pelayanan" });
+    }
+  });
+
+  app.delete("/api/ministries/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await prisma.ministryMember.deleteMany({ where: { ministryId: id } });
+      await prisma.ministry.delete({ where: { id } });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete ministry", error);
+      res.status(500).json({ message: "Gagal menghapus pelayanan" });
+    }
+  });
+
+  // ==================== MINISTRY MEMBERS ENDPOINTS ====================
+
+  app.get("/api/ministries/:id/members", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const members = await prisma.ministryMember.findMany({
+        where: { ministryId: id },
+        orderBy: { joinedAt: "desc" },
+      });
+
+      const jemaatIds = members.map((m) => m.jemaatId);
+      const jemaatList = await prisma.jemaat.findMany({
+        where: { id: { in: jemaatIds } },
+      });
+      const jemaatMap = new Map(jemaatList.map((j) => [j.id, j]));
+
+      res.json(
+        members.map((m) => {
+          const j = jemaatMap.get(m.jemaatId);
+          return {
+            id: m.id,
+            jemaatId: m.jemaatId,
+            name: j?.name || "-",
+            initials: j?.initials || "NA",
+            role: m.role,
+            joinedAt: formatDate(m.joinedAt),
+          };
+        }),
+      );
+    } catch (error) {
+      console.error("Failed to load ministry members", error);
+      res.status(500).json({ message: "Gagal mengambil anggota pelayanan" });
+    }
+  });
+
+  app.post("/api/ministries/:id/members", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { jemaatId, role } = req.body as {
+        jemaatId?: string;
+        role?: string;
+      };
+
+      if (!jemaatId || !role) {
+        res.status(400).json({ message: "Jemaat dan peran wajib diisi" });
+        return;
+      }
+
+      const existing = await prisma.ministryMember.findFirst({
+        where: { ministryId: id, jemaatId },
+      });
+      if (existing) {
+        res.status(400).json({ message: "Jemaat sudah terdaftar di pelayanan ini" });
+        return;
+      }
+
+      const memberId = await createMinistryMemberId();
+      const created = await prisma.ministryMember.create({
+        data: { id: memberId, ministryId: id, jemaatId, role },
+      });
+
+      const jemaat = await prisma.jemaat.findUnique({ where: { id: jemaatId } });
+
+      res.status(201).json({
+        id: created.id,
+        jemaatId: created.jemaatId,
+        name: jemaat?.name || "-",
+        initials: jemaat?.initials || "NA",
+        role: created.role,
+        joinedAt: formatDate(created.joinedAt),
+      });
+    } catch (error) {
+      console.error("Failed to add ministry member", error);
+      res.status(500).json({ message: "Gagal menambah anggota pelayanan" });
+    }
+  });
+
+  app.delete("/api/ministries/:ministryId/members/:jemaatId", async (req, res) => {
+    try {
+      const { ministryId, jemaatId } = req.params;
+      await prisma.ministryMember.deleteMany({
+        where: { ministryId, jemaatId },
+      });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to remove ministry member", error);
+      res.status(500).json({ message: "Gagal menghapus anggota pelayanan" });
+    }
+  });
+
+  // ==================== EVENT ENDPOINTS ====================
+
+  app.get("/api/events", async (req, res) => {
+    try {
+      const month = typeof req.query.month === "string" ? Number(req.query.month) : undefined;
+      const year = typeof req.query.year === "string" ? Number(req.query.year) : undefined;
+
+      let where = {};
+      if (month !== undefined && year !== undefined) {
+        const start = new Date(year, month - 1, 1);
+        const end = new Date(year, month, 0, 23, 59, 59);
+        where = { eventDate: { gte: start, lte: end } };
+      }
+
+      const events = await prisma.event.findMany({
+        where,
+        orderBy: { eventDate: "asc" },
+      });
+
+      res.json(
+        events.map((item) => ({
+          id: item.id,
+          title: item.title,
+          eventDate: item.eventDate.toISOString().split("T")[0],
+          description: item.description,
+          type: eventTypeLabel[item.type] || item.type,
+          rawType: item.type,
+        })),
+      );
+    } catch (error) {
+      console.error("Failed to load events", error);
+      res.status(500).json({ message: "Gagal mengambil data acara" });
+    }
+  });
+
+  app.post("/api/events", async (req, res) => {
+    try {
+      const { title, eventDate, description, type } = req.body as {
+        title?: string;
+        eventDate?: string;
+        description?: string;
+        type?: string;
+      };
+
+      if (!title || !eventDate) {
+        res.status(400).json({ message: "Judul dan tanggal wajib diisi" });
+        return;
+      }
+
+      const id = await createEventId();
+      const created = await prisma.event.create({
+        data: {
+          id,
+          title,
+          eventDate: new Date(eventDate),
+          description: description || "",
+          type: toEventType(type),
+        },
+      });
+
+      res.status(201).json({
+        id: created.id,
+        title: created.title,
+        eventDate: created.eventDate.toISOString().split("T")[0],
+        description: created.description,
+        type: eventTypeLabel[created.type] || created.type,
+        rawType: created.type,
+      });
+    } catch (error) {
+      console.error("Failed to create event", error);
+      res.status(500).json({ message: "Gagal menambah acara" });
+    }
+  });
+
+  app.patch("/api/events/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { title, eventDate, description, type } = req.body as {
+        title?: string;
+        eventDate?: string;
+        description?: string;
+        type?: string;
+      };
+
+      const updated = await prisma.event.update({
+        where: { id },
+        data: {
+          title,
+          eventDate: eventDate ? new Date(eventDate) : undefined,
+          description,
+          type: type ? toEventType(type) : undefined,
+        },
+      });
+
+      res.json({
+        id: updated.id,
+        title: updated.title,
+        eventDate: updated.eventDate.toISOString().split("T")[0],
+        description: updated.description,
+        type: eventTypeLabel[updated.type] || updated.type,
+        rawType: updated.type,
+      });
+    } catch (error) {
+      console.error("Failed to update event", error);
+      res.status(500).json({ message: "Gagal memperbarui acara" });
+    }
+  });
+
+  app.delete("/api/events/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await prisma.event.delete({ where: { id } });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete event", error);
+      res.status(500).json({ message: "Gagal menghapus acara" });
+    }
+  });
+
+  // ==================== DASHBOARD UPCOMING ENDPOINTS ====================
+
+  app.get("/api/dashboard/upcoming", async (req, res) => {
+    try {
+      const now = new Date();
+      const weekLater = new Date(now);
+      weekLater.setDate(weekLater.getDate() + 7);
+
+      const upcomingEvents = await prisma.event.findMany({
+        where: {
+          eventDate: { gte: now, lte: weekLater },
+        },
+        orderBy: { eventDate: "asc" },
+      });
+
+      const allJemaat = await prisma.jemaat.findMany({
+        where: { birthDate: { not: null }, status: "AKTIF" },
+        select: { id: true, name: true, initials: true, birthDate: true },
+      });
+
+      const upcomingBirthdays = allJemaat.filter((j) => {
+        if (!j.birthDate) return false;
+        const bMonth = j.birthDate.getMonth();
+        const bDay = j.birthDate.getDate();
+        const checkDate = new Date(now);
+        while (checkDate <= weekLater) {
+          if (checkDate.getMonth() === bMonth && checkDate.getDate() === bDay) {
+            return true;
+          }
+          checkDate.setDate(checkDate.getDate() + 1);
+        }
+        return false;
+      }).map((j) => {
+        const age = now.getFullYear() - j.birthDate!.getFullYear();
+        return {
+          id: j.id,
+          name: j.name,
+          initials: j.initials,
+          birthDate: j.birthDate!.toISOString().split("T")[0],
+          turningAge: age + 1,
+        };
+      });
+
+      res.json({
+        events: upcomingEvents.map((e) => ({
+          id: e.id,
+          title: e.title,
+          eventDate: e.eventDate.toISOString().split("T")[0],
+          type: eventTypeLabel[e.type] || e.type,
+        })),
+        birthdays: upcomingBirthdays,
+      });
+    } catch (error) {
+      console.error("Failed to load upcoming data", error);
+      res.status(500).json({ message: "Gagal mengambil data mendatang" });
     }
   });
 

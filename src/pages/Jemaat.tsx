@@ -10,6 +10,7 @@ interface Jemaat {
   phone: string;
   status: string;
   initials: string;
+  birthDate: string | null;
 }
 
 interface EditForm {
@@ -18,6 +19,7 @@ interface EditForm {
   address: string;
   phone: string;
   status: string;
+  birthDate: string;
 }
 
 interface ConfirmState {
@@ -110,13 +112,14 @@ export default function Jemaat() {
     const phone = window.prompt("No HP:");
     if (!phone) return;
     const statusInput = window.prompt("Status (Aktif/Tidak Aktif)", "Aktif") || "Aktif";
+    const birthDateInput = window.prompt("Tanggal Lahir (YYYY-MM-DD, kosongkan jika tidak tahu):") || "";
 
     const response = await fetch("/api/jemaat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name, address, phone, status: statusInput }),
+      body: JSON.stringify({ name, address, phone, status: statusInput, birthDate: birthDateInput || undefined }),
     });
 
     if (!response.ok) {
@@ -151,6 +154,7 @@ export default function Jemaat() {
         address: payload.address,
         phone: payload.phone,
         status: payload.status,
+        birthDate: payload.birthDate || null,
       }),
     });
 
@@ -302,6 +306,7 @@ export default function Jemaat() {
                           address: jm.address,
                           phone: jm.phone,
                           status: jm.status,
+                          birthDate: jm.birthDate || "",
                         })}
                         className="p-2 text-outline hover:text-primary transition-colors"
                         title="Edit data jemaat"
@@ -397,11 +402,21 @@ export default function Jemaat() {
                 <select
                   value={editing.status}
                   onChange={(event) => setEditing({ ...editing, status: event.target.value })}
-                  className="w-full bg-white border border-outline-variant rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  className="w-full bg-white border border-outline-variant rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary/20 appearance-none outline-none"
                 >
                   <option>Aktif</option>
                   <option>Tidak Aktif</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Tanggal Lahir</label>
+                <input
+                  type="date"
+                  value={editing.birthDate}
+                  onChange={(event) => setEditing({ ...editing, birthDate: event.target.value })}
+                  className="w-full bg-white border border-outline-variant rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                />
+                <p className="text-xs text-on-surface-variant mt-1">Opsional. Digunakan untuk pengingat ulang tahun di dashboard.</p>
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
@@ -416,6 +431,7 @@ export default function Jemaat() {
                     phone: editing.phone,
                     status: editing.status,
                     initials: "",
+                    birthDate: editing.birthDate || null,
                   },
                 })}
                 className="px-4 py-2 rounded-lg bg-primary text-on-primary hover:brightness-110"

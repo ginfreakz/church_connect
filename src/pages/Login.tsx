@@ -55,7 +55,7 @@ export default function Login() {
           <div className="relative z-10 text-white">
             <div className="flex items-center gap-3 mb-6">
               <Building2 className="w-10 h-10" />
-              <h1 className="font-headline-lg !text-white leading-none">JKI Taman Firdaus</h1>
+              <h1 className="font-headline-lg !text-white leading-none">JKI Obed Edom Ministry</h1>
             </div>
             <p className="font-title-lg text-blue-100 max-w-sm">Sistem Manajemen Pelayanan</p>
             <div className="h-1 w-12 bg-secondary-container mt-6 rounded-full"></div>

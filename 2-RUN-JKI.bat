@@ -1,9 +1,10 @@
 @echo off
 setlocal
 cd /d "%~dp0"
+title JKI Obed Edom Ministry
 
 echo ========================================
-echo JKI Taman Firdaus - Start App
+echo JKI Obed Edom Ministry - Start App
 echo ========================================
 
 where node >nul 2>nul
@@ -13,32 +14,32 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if not exist node_modules (
-  echo Installing dependencies...
-  call npm install
-  if errorlevel 1 (
-    echo [ERROR] npm install failed.
-    pause
-    exit /b 1
-  )
+echo Closing old app process on port 3000 (if any)...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue ^| Select-Object -ExpandProperty OwningProcess -Unique ^| ForEach-Object { Stop-Process -Id $_ -Force }" >nul 2>nul
+
+if "%~1"=="--updated" goto prepare
+
+rem git pull may replace this very file while it runs. cmd reads a ( ) block completely
+rem before executing it, so the update and the restart of the (new) file stay in one block.
+(
+  node scripts\prepare-app.mjs update
+  "%~f0" --updated
 )
 
-echo Ensuring database migration state...
-call npm run prisma:deploy
+:prepare
+node scripts\prepare-app.mjs prepare
 if errorlevel 1 (
-  echo [ERROR] Failed to apply database migrations.
+  echo.
+  echo [ERROR] Aplikasi gagal disiapkan. Foto layar ini dan kirim ke admin.
   pause
   exit /b 1
 )
-
-echo Closing old app process on port 3000 (if any)...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue ^| Select-Object -ExpandProperty OwningProcess -Unique ^| ForEach-Object { Stop-Process -Id $_ -Force }" >nul 2>nul
 
 echo Opening app in browser...
 start "" "http://localhost:3000"
 
 echo Starting app server...
-start "JKI Taman Firdaus Server" cmd /k "cd /d %~dp0 && npm run dev"
+start "JKI Obed Edom Ministry Server" cmd /k "cd /d %~dp0 && npm run dev"
 
 echo App launch triggered. You may close this window.
 pause

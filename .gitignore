@@ -8,3 +8,9 @@ coverage/
 !.env.example
 
 /src/generated/prisma
+
+# Live data: never commit, back up instead
+church-connect.db
+church-connect.db-journal
+uploads/
+database-backup/auto/

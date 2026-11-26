@@ -59,7 +59,7 @@ This project uses SQLite. The database is a single file at:
 
 - `church-connect.db`
 
-To backup, simply copy this file. To regenerate SQL backup:
+To back up, copy this file together with the `uploads/` folder (see "User Data" below). To regenerate the SQL backup:
 
 ```bash
 npm run db:backup
@@ -69,21 +69,54 @@ npm run db:backup
 
 This repo includes ready-to-use batch launchers:
 
-- `1-SETUP-FIRST-TIME.bat`: Run once after cloning/downloading project.
+- `1-SETUP-FIRST-TIME.bat`: Run once after cloning. Safe to run again: it never re-seeds an existing database.
 - `2-RUN-JKI.bat`: Daily launcher (double-click to run app).
 - `3-STOP-JKI.bat`: Stop app.
 
 Recommended flow on user laptop:
 
-1. Install Node.js LTS.
-2. Double-click `1-SETUP-FIRST-TIME.bat` (first time only).
-3. For daily use, double-click `2-RUN-JKI.bat`.
+1. Install Node.js LTS and Git for Windows.
+2. `git clone` this repo (do not download a ZIP: auto-update needs git).
+3. Run `git pull` once by hand so Git Credential Manager saves the GitHub login (only needed if the repo is private).
+4. Double-click `1-SETUP-FIRST-TIME.bat` (first time only).
+5. For daily use, double-click `2-RUN-JKI.bat`.
 
-The launcher will:
+`2-RUN-JKI.bat` will:
 
-- apply migrations,
-- start app server,
-- open browser automatically to `http://localhost:3000`.
+- stop an old app process on port 3000,
+- **auto-update**: `git pull --ff-only` the latest version. If there is no internet or the laptop has local
+  code changes, it prints a warning and starts the current version,
+- run `npm ci` only when `package-lock.json` changed, and `prisma generate` only when the schema changed,
+- back up `church-connect.db` to `database-backup/auto/` (last 20 kept), then apply migrations,
+- seed demo data only when no database exists yet,
+- start the server and open `http://localhost:3000`.
+
+The logic lives in `scripts/prepare-app.mjs` (Node built-ins only).
+
+### Shipping an update to the user
+
+Commit and push to `main`. The next time the user double-clicks `2-RUN-JKI.bat`, they get it.
+Schema changes must come with a migration (`npm run prisma:migrate`) so `prisma migrate deploy` can apply them.
+
+## Letter Generator (Korwil Jabar → 04 Surat Menyurat)
+
+"Buat Surat" writes outgoing letters in the church's letter format. The letterhead, logos, signature and stamp are
+set once in **Kop Surat** (stored in the `Setting` table).
+
+- The server renders the letter as HTML (`server/letter.ts`); the in-app preview and the PDF use the same HTML.
+- PDFs are printed by the Microsoft Edge that ships with Windows (or Google Chrome) through `puppeteer-core`, so no
+  browser is downloaded. Set `PDF_BROWSER_PATH` in `.env` to use another Chromium-based browser.
+- If no browser can be started, the app offers the **Cetak** page instead (print → "Save as PDF").
+
+## User Data (never in git)
+
+| Path | Contents |
+| --- | --- |
+| `church-connect.db` | All records |
+| `uploads/` | Attachments (Arsip Korwil Jabar), grouped as `uploads/gereja-lokal/<ID>/`, `uploads/rohaniwan/<ID>/` or `uploads/surat/<ID>/` |
+| `database-backup/auto/` | Automatic DB snapshots taken on each app start |
+
+To back up the laptop, copy `church-connect.db` **and** the `uploads/` folder.
 
 ## Advantages Over PostgreSQL
 

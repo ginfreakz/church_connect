@@ -4,6 +4,9 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { prisma } from "./src/lib/prisma";
+import { registerKorwilRoutes, searchKorwil } from "./server/korwil";
+import { registerSuratRoutes, searchSurat } from "./server/surat";
+import { registerLetterRoutes } from "./server/letter";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,7 +15,12 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  // Large enough for kop surat images (logos, signature, stamp) sent as data URLs.
+  app.use(express.json({ limit: "15mb" }));
+
+  registerKorwilRoutes(app);
+  registerSuratRoutes(app);
+  registerLetterRoutes(app);
 
   const statusLabel: Record<string, string> = {
     AKTIF: "Aktif",
@@ -631,7 +639,7 @@ async function startServer() {
         return;
       }
 
-      const [jemaatResults, transactionResults] = await Promise.all([
+      const [jemaatResults, transactionResults, korwilResults, suratResults] = await Promise.all([
         prisma.jemaat.findMany({
           where: {
             OR: [
@@ -651,9 +659,13 @@ async function startServer() {
           orderBy: { transactionDate: "desc" },
           take: 5,
         }),
+        searchKorwil(q),
+        searchSurat(q),
       ]);
 
       const results = [
+        ...korwilResults,
+        ...suratResults,
         ...jemaatResults.map((item) => ({
           id: item.id,
           type: "jemaat",

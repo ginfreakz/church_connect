@@ -68,3 +68,79 @@ model Event {
   type        String
   createdAt   DateTime @default(now())
 }
+
+// ==================== ARSIP KORWIL JABAR ====================
+
+model GerejaLokal {
+  id              String   @id
+  name            String
+  worshipAddress  String
+  secretariat     String   @default("")
+  serviceSchedule String   @default("")
+  notes           String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Gembala Jemaat, Pendeta Muda (Pdm.) and Pendeta (Pdt.) share this table.
+// `jabatan` is the ordination rank (PDM | PDT); `isGembala` marks shepherds of a local church.
+model Rohaniwan {
+  id            String    @id
+  name          String
+  jabatan       String    @default("PDM")
+  isGembala     Boolean   @default(false)
+  gerejaLokalId String?
+  nir           String    @default("")
+  nirExpiry     DateTime?
+  cardNumber    String    @default("")
+  cardExpiry    DateTime?
+  address       String    @default("")
+  phone         String    @default("")
+  birthPlace    String    @default("")
+  birthDate     DateTime?
+  gender        String    @default("")
+  nationality   String    @default("Indonesia")
+  churchName    String    @default("")
+  churchAddress String    @default("")
+  notes         String    @default("")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// Uploaded files. `ownerType` is GEREJA_LOKAL | ROHANIWAN | SURAT, `storedPath` is relative to uploads/.
+model Lampiran {
+  id           Int      @id @default(autoincrement())
+  ownerType    String
+  ownerId      String
+  label        String
+  originalName String
+  storedPath   String
+  mimeType     String
+  size         Int
+  createdAt    DateTime @default(now())
+
+  @@index([ownerType, ownerId])
+}
+
+// Surat masuk / keluar. The scanned letter itself is stored as Lampiran (ownerType SURAT).
+model Surat {
+  id           String   @id
+  direction    String
+  letterNumber String
+  letterDate   DateTime
+  subject      String
+  counterparty String   @default("")
+  category     String   @default("")
+  notes        String   @default("")
+  // JSON body of a letter made with the letter generator (null for archived letters).
+  content      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// App-wide settings stored as JSON, e.g. key "letterhead" for the kop surat.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

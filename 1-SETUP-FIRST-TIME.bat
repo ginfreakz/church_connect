@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 
 echo ========================================
-echo JKI Taman Firdaus - First Time Setup
+echo JKI Obed Edom Ministry - First Time Setup
 echo ========================================
 
 where node >nul 2>nul
@@ -14,36 +14,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if not exist node_modules (
-  echo Installing dependencies...
-  call npm install
-  if errorlevel 1 (
-    echo [ERROR] npm install failed.
-    pause
-    exit /b 1
-  )
-)
-
-echo Generating Prisma client...
-call npm run prisma:generate
+rem Safe to run again: existing data is backed up and never re-seeded.
+node scripts\prepare-app.mjs prepare
 if errorlevel 1 (
-  echo [ERROR] Failed to generate Prisma client.
+  echo [ERROR] Setup failed.
   pause
   exit /b 1
-)
-
-echo Applying database migrations...
-call npm run prisma:deploy
-if errorlevel 1 (
-  echo [ERROR] Failed to apply database migrations.
-  pause
-  exit /b 1
-)
-
-echo Seeding database...
-call npm run prisma:seed
-if errorlevel 1 (
-  echo [WARNING] Database seed failed. You can still run the app.
 )
 
 echo Setup completed.

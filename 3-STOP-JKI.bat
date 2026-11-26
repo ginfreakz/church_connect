@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 
 echo ========================================
-echo JKI Taman Firdaus - Stop App
+echo JKI Obed Edom Ministry - Stop App
 echo ========================================
 
 echo Stopping app process on port 3000...
